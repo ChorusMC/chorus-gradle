@@ -47,7 +47,7 @@ class SimpleBuildFunctionalTest extends Specification {
 				.withProjectDir(testProjectDir.root)
 				.withArguments('build',"--stacktrace")
 				.withPluginClasspath()
-				.withGradleVersion("4.9")
+				.withGradleVersion("6.0.1")
 				.withDebug(true)
 				.build()
 

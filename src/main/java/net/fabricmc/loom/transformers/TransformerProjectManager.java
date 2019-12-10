@@ -22,36 +22,30 @@
  * SOFTWARE.
  */
 
-package net.fabricmc.loom.util;
+package net.fabricmc.loom.transformers;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
+import com.google.common.collect.Maps;
 import org.gradle.api.Project;
-import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.model.ObjectFactory;
 
-//This is used to bridge the gap over large gradle api changes.
-public class GradleSupport {
-	public static RegularFileProperty getfileProperty(Project project) {
-		try {
-			//First try the new method, if that fails fall back.
-			return getfilePropertyModern(project);
-		} catch (Exception e) {
-			//Nope
-		}
+import java.util.Map;
 
-		return getfilePropertyLegacy(project);
-	}
+public class TransformerProjectManager
+{
+    private static final TransformerProjectManager INSTANCE = new TransformerProjectManager();
 
-	private static RegularFileProperty getfilePropertyModern(Project project) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-		ObjectFactory objectFactory = project.getObjects();
-		Method method = objectFactory.getClass().getDeclaredMethod("fileProperty");
-		method.setAccessible(true);
-		return (RegularFileProperty) method.invoke(objectFactory);
-	}
+    public static TransformerProjectManager getInstance() {
+        return INSTANCE;
+    }
 
-	private static RegularFileProperty getfilePropertyLegacy(Project project) {
-		return project.getLayout().fileProperty();
-	}
+    private Map<String, Project> projects = Maps.newConcurrentMap();
+
+    public void register(Project project)
+    {
+        projects.put(project.getPath(), project);
+    }
+
+    public Project get(String path)
+    {
+        return projects.get(path);
+    }
 }

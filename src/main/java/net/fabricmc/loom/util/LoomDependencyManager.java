@@ -33,8 +33,12 @@ import java.util.Map;
 import com.google.gson.JsonObject;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ExternalModuleDependency;
+import org.gradle.api.artifacts.ResolvedArtifact;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
+import org.gradle.api.plugins.JavaPlugin;
+import org.gradle.api.tasks.compile.JavaCompile;
 
 import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.providers.MappingsProvider;
@@ -116,32 +120,10 @@ public class LoomDependencyManager {
 			});
 		}
 
-		{
-			String mappingsKey = mappingsProvider.mappingsName + "." + mappingsProvider.minecraftVersion.replace(' ', '_').replace('.', '_').replace('-', '_') + "." + mappingsProvider.mappingsVersion;
-
-			for (RemappedConfigurationEntry entry : Constants.MOD_COMPILE_ENTRIES) {
-				ModCompileRemapper.remapDependencies(project, mappingsKey, extension, project.getConfigurations().getByName(entry.getSourceConfiguration()), project.getConfigurations().getByName(entry.getRemappedConfiguration()), project.getConfigurations().getByName(entry.getTargetConfiguration(project.getConfigurations())), afterTasks::add);
-			}
-		}
-
 		if (extension.getInstallerJson() == null) {
 			//If we've not found the installer JSON we've probably skipped remapping Fabric loader, let's go looking
 			project.getLogger().info("Searching through modCompileClasspath for installer JSON");
-			final Configuration configuration = project.getConfigurations().getByName(Constants.MOD_COMPILE_CLASSPATH);
-
-			for (File input : configuration.resolve()) {
-				JsonObject jsonObject = ModProcessor.readInstallerJson(input, project);
-
-				if (jsonObject != null) {
-					if (extension.getInstallerJson() != null) {
-						project.getLogger().info("Found another installer JSON in, ignoring it! " + input);
-						continue;
-					}
-
-					project.getLogger().info("Found installer JSON in " + input);
-					extension.setInstallerJson(jsonObject);
-				}
-			}
+			CheatyFabricInstallerFinder.handleFabricInstaller(project);
 		}
 
 		if (extension.getInstallerJson() != null) {
@@ -177,6 +159,7 @@ public class LoomDependencyManager {
 						.filter(mavenArtifactRepository -> mavenArtifactRepository.getUrl().toString().equalsIgnoreCase(url)).count();
 
 				if (count == 0) {
+				    project.getLogger().lifecycle("[FabricInstaller]: Adding: " + url + " as repository for installer dependencies.");
 					project.getRepositories().maven(mavenArtifactRepository -> mavenArtifactRepository.setUrl(jsonElement.getAsJsonObject().get("url").getAsString()));
 				}
 			}

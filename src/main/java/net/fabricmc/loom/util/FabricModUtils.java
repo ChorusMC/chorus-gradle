@@ -24,46 +24,33 @@
 
 package net.fabricmc.loom.util;
 
-import org.gradle.api.artifacts.ConfigurationContainer;
+import org.gradle.api.Project;
+import org.gradle.api.artifacts.ResolvedArtifact;
+import org.gradle.api.logging.Logger;
 
-public class RemappedConfigurationEntry {
-	private final String sourceConfiguration;
-	private final String targetConfiguration;
-	private final String mavenScope;
-	private final boolean isOnModCompileClasspath;
+import java.io.File;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-	public RemappedConfigurationEntry(String sourceConfiguration, String targetConfiguration, boolean isOnModCompileClasspath, String mavenScope) {
-		this.sourceConfiguration = sourceConfiguration;
-		this.targetConfiguration = targetConfiguration;
-		this.isOnModCompileClasspath = isOnModCompileClasspath;
-		this.mavenScope = mavenScope;
-	}
+public final class FabricModUtils
+{
 
-	public String getMavenScope() {
-		return mavenScope;
-	}
+    private FabricModUtils()
+    {
+        throw new IllegalStateException("Tried to initialize: FabricModUtils but this is a Utility class.");
+    }
 
-	public boolean hasMavenScope() {
-		return mavenScope != null && !mavenScope.isEmpty();
-	}
-
-	public boolean isOnModCompileClasspath() {
-		return isOnModCompileClasspath;
-	}
-
-	public String getSourceConfiguration() {
-		return sourceConfiguration;
-	}
-
-	public String getRemappedConfiguration() {
-		return sourceConfiguration + "Mapped";
-	}
-
-	public String getTargetConfiguration(ConfigurationContainer container) {
-		if (container.findByName(targetConfiguration) == null) {
-			return "compile";
-		}
-
-		return targetConfiguration;
-	}
+    /**
+     * Checks if an artifact is a fabric mod, according to the presence of a fabric.mod.json.
+     */
+    public static boolean isFabricMod(Project project, Logger logger, File artifact, String notation) {
+        AtomicBoolean fabricMod = new AtomicBoolean(false);
+        project.zipTree(artifact).visit(f -> {
+            if (f.getName().endsWith("fabric.mod.json")) {
+                logger.info("Found Fabric mod in modCompile: {}", notation);
+                fabricMod.set(true);
+                f.stopVisiting();
+            }
+        });
+        return fabricMod.get();
+    }
 }

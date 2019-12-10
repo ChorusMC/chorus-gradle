@@ -35,6 +35,8 @@ import org.cadixdev.lorenz.model.ClassMapping;
 import org.cadixdev.mercury.Mercury;
 import org.cadixdev.mercury.remapper.MercuryRemapper;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.ResolvedArtifact;
+import org.gradle.api.artifacts.repositories.ArtifactRepository;
 import org.zeroturnaround.zip.ZipUtil;
 
 import net.fabricmc.loom.LoomGradleExtension;
@@ -152,13 +154,17 @@ public class SourceRemapper {
 	public static Mercury createMercuryWithClassPath(Project project, boolean toNamed) {
 		Mercury m = new Mercury();
 
-		for (File file : project.getConfigurations().getByName(Constants.MINECRAFT_DEPENDENCIES).getFiles()) {
-			m.getClassPath().add(file.toPath());
-		}
+        //Ensure repositories exists because of idea being a bit eager
+        RepositoryUtils.ensureRepositoriesExist(project);
+
+		for (ResolvedArtifact artifact : project.getConfigurations().getByName(Constants.MINECRAFT_DEPENDENCIES).getResolvedConfiguration().getResolvedArtifacts()) {
+		    final File file = artifact.getFile();
+		    m.getClassPath().add(file.toPath());
+        }
 
 		if (!toNamed) {
-			for (File file : project.getConfigurations().getByName("compileClasspath").getFiles()) {
-				m.getClassPath().add(file.toPath());
+			for (ResolvedArtifact artifact : project.getConfigurations().getByName("compileClasspath").getResolvedConfiguration().getResolvedArtifacts()) {
+				m.getClassPath().add(artifact.getFile().toPath());
 			}
 		}
 

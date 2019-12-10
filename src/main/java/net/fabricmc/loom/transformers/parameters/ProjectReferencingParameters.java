@@ -22,44 +22,14 @@
  * SOFTWARE.
  */
 
-package net.fabricmc.loom.util;
+package net.fabricmc.loom.transformers.parameters;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import org.gradle.api.artifacts.transform.TransformParameters;
+import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Input;
 
-import groovy.util.Node;
-
-public final class GroovyXmlUtil {
-	private GroovyXmlUtil() { }
-
-	public static Node getOrCreateNode(Node parent, String name) {
-		for (Object object : parent.children()) {
-			if (object instanceof Node && name.equals(((Node) object).name())) {
-				return (Node) object;
-			}
-		}
-
-		return parent.appendNode(name);
-	}
-
-	public static Optional<Node> getNode(Node parent, String name) {
-		for (Object object : parent.children()) {
-			if (object instanceof Node && name.equals(((Node) object).name())) {
-				return Optional.of((Node) object);
-			}
-		}
-
-		return Optional.empty();
-	}
-
-	public static Stream<Node> childrenNodesStream(Node node) {
-		//noinspection unchecked
-		return (Stream<Node>) (Stream) (((List<Object>) node.children()).stream().filter((i) -> i instanceof Node));
-	}
-
-	public static Iterable<Node> childrenNodes(Node node) {
-		return childrenNodesStream(node).collect(Collectors.toList());
-	}
+public interface ProjectReferencingParameters extends TransformParameters
+{
+    @Input
+    Property<String> getProjectPathParameter();
 }
