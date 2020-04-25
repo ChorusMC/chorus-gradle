@@ -27,12 +27,14 @@ package net.fabricmc.loom.task.fernflower;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.io.FileUtils;
 import org.jetbrains.java.decompiler.struct.StructClass;
 import org.jetbrains.java.decompiler.struct.StructField;
 import org.jetbrains.java.decompiler.struct.StructMethod;
@@ -45,15 +47,18 @@ import net.fabricmc.mapping.tree.ParameterDef;
 import net.fabricmc.mapping.tree.TinyMappingFactory;
 import net.fabricmc.mapping.tree.TinyTree;
 import net.fabricmc.mappings.EntryTriple;
+import net.fabricmc.loom.util.MixinTargetScanner;
 
 public class TinyJavadocProvider implements IFabricJavadocProvider {
 	private final Map<String, ClassDef> classes = new HashMap<>();
 	private final Map<EntryTriple, FieldDef> fields = new HashMap<>();
 	private final Map<EntryTriple, MethodDef> methods = new HashMap<>();
 
+	private final Map<String, List<MixinTargetScanner.MixinTargetInfo>> mixins;
+
 	private final String namespace = "named";
 
-	public TinyJavadocProvider(File tinyFile) {
+	public TinyJavadocProvider(File tinyFile, File mixinTargetFile) {
 		final TinyTree mappings = readMappings(tinyFile);
 
 		for (ClassDef classDef : mappings.getClasses()) {
@@ -68,12 +73,38 @@ public class TinyJavadocProvider implements IFabricJavadocProvider {
 				methods.put(new EntryTriple(className, methodDef.getName(namespace), methodDef.getDescriptor(namespace)), methodDef);
 			}
 		}
+
+		try {
+			mixins = MixinTargetScanner.fromJson(FileUtils.readFileToString(mixinTargetFile, StandardCharsets.UTF_8));
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to read mixin target file", e);
+		}
 	}
 
 	@Override
 	public String getClassDoc(StructClass structClass) {
+		StringBuilder comment = new StringBuilder();
 		ClassDef classDef = classes.get(structClass.qualifiedName);
-		return classDef != null ? classDef.getComment() : null;
+
+		if (classDef != null && classDef.getComment() != null) {
+			comment.append(classDef.getComment());
+		}
+
+		if (mixins.containsKey(structClass.qualifiedName)) {
+			List<MixinTargetScanner.MixinTargetInfo> mixinList = mixins.get(structClass.qualifiedName);
+
+			if (classDef != null && classDef.getComment() != null) {
+				comment.append("\n");
+			}
+
+			comment.append("Mixins:");
+
+			for (MixinTargetScanner.MixinTargetInfo info : mixinList) {
+				comment.append(String.format("\n\t%s - {@link %s}", info.getModid(), info.getMixinClass().replaceAll("\\$", ".")));
+			}
+		}
+
+		return comment.length() == 0 ? null : comment.toString();
 	}
 
 	@Override

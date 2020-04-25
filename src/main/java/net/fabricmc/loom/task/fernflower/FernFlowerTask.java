@@ -26,6 +26,8 @@ package net.fabricmc.loom.task.fernflower;
 
 import static java.text.MessageFormat.format;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,6 +35,7 @@ import java.util.Map;
 import java.util.Stack;
 import java.util.function.Supplier;
 
+import org.apache.commons.io.FileUtils;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences;
 import org.gradle.api.internal.project.ProjectInternal;
 import org.gradle.api.logging.LogLevel;
@@ -47,6 +50,9 @@ import net.fabricmc.loom.task.AbstractDecompileTask;
 import net.fabricmc.loom.task.ForkingJavaExecTask;
 import net.fabricmc.loom.util.ConsumingOutputStream;
 import net.fabricmc.loom.util.OperatingSystem;
+import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.MixinTargetScanner;
+import net.fabricmc.loom.util.RemappedConfigurationEntry;
 
 /**
  * Created by covers1624 on 9/02/19.
@@ -60,6 +66,16 @@ public class FernFlowerTask extends AbstractDecompileTask implements ForkingJava
 		if (!OperatingSystem.is64Bit()) {
 			throw new UnsupportedOperationException("FernFlowerTask requires a 64bit JVM to run due to the memory requirements");
 		}
+
+		MixinTargetScanner mixinTargetScanner = new MixinTargetScanner(getProject());
+
+		for (RemappedConfigurationEntry modCompileEntry : Constants.MOD_COMPILE_ENTRIES) {
+			mixinTargetScanner.scan(getProject().getConfigurations().getByName(modCompileEntry.getRemappedConfiguration()));
+		}
+
+		String mixinTargetJson = mixinTargetScanner.getClassMixinsJson();
+		File mixinTargetFile = new File(getExtension().getProjectBuildCache(), "mixin_targets.json");
+		FileUtils.writeStringToFile(mixinTargetFile, mixinTargetJson, StandardCharsets.UTF_8);
 
 		Map<String, Object> options = new HashMap<>();
 		options.put(IFernflowerPreferences.DECOMPILE_GENERIC_SIGNATURES, "1");
@@ -80,6 +96,7 @@ public class FernFlowerTask extends AbstractDecompileTask implements ForkingJava
 
 		args.add("-t=" + getNumThreads());
 		args.add("-m=" + getExtension().getMappingsProvider().tinyMappings.getAbsolutePath());
+		args.add("-j=" + mixinTargetFile.getAbsolutePath());
 
 		//TODO, Decompiler breaks on jemalloc, J9 module-info.class?
 		getLibraries().forEach(f -> args.add("-e=" + f.getAbsolutePath()));
