@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import groovy.util.Node;
 import org.gradle.api.Plugin;
@@ -315,12 +316,15 @@ public class AbstractPlugin implements Plugin<Project> {
 
 				try {
 					AbstractArchiveTask sourcesTask = (AbstractArchiveTask) project1.getTasks().getByName("sourcesJar");
+					String oldClassifier = sourcesTask.getClassifier();
+					sourcesTask.setClassifier(Strings.isNullOrEmpty(oldClassifier) ? "dev" : oldClassifier + "-dev");
 
-					RemapSourcesJarTask remapSourcesJarTask = (RemapSourcesJarTask) project1.getTasks().findByName("remapSourcesJar");
+					RemapSourcesJarTask remapSourcesJarTask = (RemapSourcesJarTask) project1.getTasks().getByName("remapSourcesJar");
 					remapSourcesJarTask.setInput(sourcesTask.getArchivePath());
-					remapSourcesJarTask.setOutput(sourcesTask.getArchivePath());
-					remapSourcesJarTask.doLast(task -> project1.getArtifacts().add("archives", remapSourcesJarTask.getOutput()));
-					remapSourcesJarTask.dependsOn(project1.getTasks().getByName("sourcesJar"));
+					remapSourcesJarTask.setDestinationDir(sourcesTask.getDestinationDir());
+					remapSourcesJarTask.setClassifier(oldClassifier);
+					remapSourcesJarTask.doLast(task -> project1.getArtifacts().add("archives", remapSourcesJarTask));
+					remapSourcesJarTask.dependsOn(sourcesTask);
 					project1.getTasks().getByName("build").dependsOn(remapSourcesJarTask);
 				} catch (UnknownTaskException e) {
 					// pass

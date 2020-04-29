@@ -28,19 +28,18 @@ import java.io.File;
 
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
-import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.jvm.tasks.Jar;
 
 import net.fabricmc.loom.util.SourceRemapper;
 
-public class RemapSourcesJarTask extends AbstractLoomTask {
+public class RemapSourcesJarTask extends Jar {
 	private Object input;
-	private Object output;
 	private String direction = "intermediary";
 
 	@TaskAction
 	public void remap() throws Exception {
-		SourceRemapper.remapSources(getProject(), getInput(), getOutput(), direction.equals("named"));
+		SourceRemapper.remapSources(getProject(), getInput(), getArchivePath(), direction.equals("named"));
 	}
 
 	@InputFile
@@ -48,9 +47,9 @@ public class RemapSourcesJarTask extends AbstractLoomTask {
 		return getProject().file(input);
 	}
 
-	@OutputFile
+	@Deprecated // Use getArchivePath
 	public File getOutput() {
-		return getProject().file(output == null ? input : output);
+		return getArchivePath();
 	}
 
 	@Input
@@ -62,8 +61,11 @@ public class RemapSourcesJarTask extends AbstractLoomTask {
 		this.input = input;
 	}
 
+	@Deprecated // Use setArchiveName setDestination
 	public void setOutput(Object output) {
-		this.output = output;
+		File file = getProject().file(output);
+		setDestinationDir(file.getParentFile());
+		setArchiveName(file.getName());
 	}
 
 	public void setTargetNamespace(String value) {
