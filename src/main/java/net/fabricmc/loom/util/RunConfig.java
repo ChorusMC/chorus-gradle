@@ -1,7 +1,7 @@
 /*
  * This file is part of fabric-loom, licensed under the MIT License (MIT).
  *
- * Copyright (c) 2016, 2017, 2018 FabricMC
+ * Copyright (c) 2016, 2017, 2018, 2020 FabricMC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -50,6 +50,7 @@ import org.gradle.plugins.ide.eclipse.model.EclipseModel;
 
 import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.providers.MinecraftProvider;
+import net.fabricmc.loom.task.GenEclipseRunsTask;
 
 public class RunConfig {
 	public String configName;
@@ -173,10 +174,10 @@ public class RunConfig {
 		return !(contents.contains("net.fabricmc.devlaunchinjector.Main"));
 	}
 
-	public String fromDummy(String dummy) throws IOException {
+	public String toEclipseRunConfigSource() throws IOException {
 		String dummyConfig;
 
-		try (InputStream input = SetupIntelijRunConfigs.class.getClassLoader().getResourceAsStream(dummy)) {
+		try (InputStream input = GenEclipseRunsTask.class.getClassLoader().getResourceAsStream("eclipse_run_config_template.xml")) {
 			dummyConfig = IOUtils.toString(input, StandardCharsets.UTF_8);
 		}
 

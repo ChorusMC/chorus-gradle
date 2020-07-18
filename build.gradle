@@ -29,6 +29,9 @@ repositories {
 		name = "Fabric"
 		url = 'https://maven.fabricmc.net/'
 	}
+	maven {
+		url = 'https://plugins.gradle.org/m2/'
+	}
 	mavenCentral()
 }
 
@@ -63,6 +66,9 @@ dependencies {
 
 	// Kapt integration
 	compileOnly("org.jetbrains.kotlin:kotlin-gradle-plugin:1.3.72")
+
+	// IDEA support
+	implementation ('gradle.plugin.org.jetbrains.gradle.plugin.idea-ext:gradle-idea-ext:0.7')
 
 	// Testing
 	testImplementation(gradleTestKit())

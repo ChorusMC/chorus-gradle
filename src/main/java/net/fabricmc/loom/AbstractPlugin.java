@@ -1,7 +1,7 @@
 /*
  * This file is part of fabric-loom, licensed under the MIT License (MIT).
  *
- * Copyright (c) 2016, 2017, 2018 FabricMC
+ * Copyright (c) 2016, 2017, 2018, 2020 FabricMC
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -61,7 +61,7 @@ import net.fabricmc.loom.util.GroovyXmlUtil;
 import net.fabricmc.loom.util.LoomDependencyManager;
 import net.fabricmc.loom.util.NestedJars;
 import net.fabricmc.loom.util.RemappedConfigurationEntry;
-import net.fabricmc.loom.util.SetupIntelijRunConfigs;
+import net.fabricmc.loom.util.SetupIdeaSettings;
 import net.fabricmc.loom.util.mixin.JavaApInvoker;
 import net.fabricmc.loom.util.mixin.KaptApInvoker;
 import net.fabricmc.loom.util.mixin.ScalaApInvoker;
@@ -95,6 +95,7 @@ public class AbstractPlugin implements Plugin<Project> {
 		project.apply(ImmutableMap.of("plugin", "java"));
 		project.apply(ImmutableMap.of("plugin", "eclipse"));
 		project.apply(ImmutableMap.of("plugin", "idea"));
+		project.getPluginManager().apply("org.jetbrains.gradle.plugin.idea-ext");
 
 		project.getExtensions().create("minecraft", LoomGradleExtension.class, project);
 		project.getExtensions().create("fabricApi", FabricApiExtension.class, project);
@@ -230,8 +231,8 @@ public class AbstractPlugin implements Plugin<Project> {
 			project1.getTasks().getByName("eclipse").finalizedBy(project1.getTasks().getByName("genEclipseRuns"));
 			project1.getTasks().getByName("cleanEclipse").finalizedBy(project1.getTasks().getByName("cleanEclipseRuns"));
 
-			if (extension.autoGenIDERuns && isRootProject(project1)) {
-				SetupIntelijRunConfigs.setup(project1);
+			if (isRootProject(project1)) {
+				SetupIdeaSettings.setup(project1, extension.autoGenIDERuns);
 			}
 
 			// Enables the default mod remapper
