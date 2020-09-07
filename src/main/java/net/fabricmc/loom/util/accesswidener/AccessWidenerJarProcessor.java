@@ -126,8 +126,8 @@ public class AccessWidenerJarProcessor implements JarProcessor {
 	}
 
 	//Called when remapping the mod
-	public void remapAccessWidener(Path modJarPath, Remapper asmRemapper) throws IOException {
-		byte[] bytes = getRemappedAccessWidener(asmRemapper);
+	public void remapAccessWidener(Path modJarPath, Remapper asmRemapper, String toM) throws IOException {
+		byte[] bytes = getRemappedAccessWidener(asmRemapper, toM);
 
 		String path = getAccessWidenerPath(modJarPath);
 
@@ -142,8 +142,8 @@ public class AccessWidenerJarProcessor implements JarProcessor {
 		}
 	}
 
-	public byte[] getRemappedAccessWidener(Remapper asmRemapper) throws IOException {
-		AccessWidenerRemapper remapper = new AccessWidenerRemapper(accessWidener, asmRemapper, "intermediary");
+	public byte[] getRemappedAccessWidener(Remapper asmRemapper, String toM) throws IOException {
+		AccessWidenerRemapper remapper = new AccessWidenerRemapper(accessWidener, asmRemapper, toM);
 		AccessWidener remapped = remapper.remap();
 
 		try (StringWriter writer = new StringWriter()) {

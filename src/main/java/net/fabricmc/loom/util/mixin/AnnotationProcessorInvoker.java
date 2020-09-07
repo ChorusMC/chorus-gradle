@@ -40,6 +40,7 @@ import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskCollection;
 
 import net.fabricmc.loom.LoomGradleExtension;
+import net.fabricmc.loom.task.RemapJarTask;
 import net.fabricmc.loom.util.Constants;
 
 /**
@@ -68,14 +69,14 @@ public abstract class AnnotationProcessorInvoker<T extends Task> {
 		return new File(getDestinationDir(task), extension.getRefmapName()).getCanonicalPath();
 	}
 
-	private void passMixinArguments(T task) {
+	private void passMixinArguments(T task, String fromM, String toM) {
 		try {
 			LoomGradleExtension extension = project.getExtensions().getByType(LoomGradleExtension.class);
 			Map<String, String> args = new HashMap<String, String>() {{
 					put("inMapFileNamedIntermediary", extension.getMappingsProvider().tinyMappings.getCanonicalPath());
 					put("outMapFileNamedIntermediary", extension.getNextMixinMappings().getCanonicalPath());
 					put("outRefMapFile", getRefmapDestination(task, extension));
-					put("defaultObfuscationEnv", "named:intermediary");
+					put("defaultObfuscationEnv", fromM + ":" + toM);
 				}};
 
 			project.getLogger().debug("Outputting refmap to dir: " + getDestinationDir(task) + " for compile task: " + task);
@@ -94,19 +95,25 @@ public abstract class AnnotationProcessorInvoker<T extends Task> {
 				project.getLogger().info("Adding mixin to classpath of AP config: " + processorConfig.getName());
 				// Pass named MC classpath to mixin AP classpath
 				processorConfig.extendsFrom(
-								configs.getByName(Constants.MINECRAFT_NAMED),
-								configs.getByName(Constants.MOD_COMPILE_CLASSPATH_MAPPED),
-								configs.getByName(Constants.MAPPINGS_FINAL)
+						configs.getByName(Constants.MINECRAFT_NAMED),
+						configs.getByName(Constants.MOD_COMPILE_CLASSPATH_MAPPED),
+						configs.getByName(Constants.MAPPINGS_FINAL)
 				);
 
 				// Add Mixin and mixin extensions (fabric-mixin-compile-extensions pulls mixin itself too)
 				project.getDependencies().add(processorConfig.getName(),
-								"net.fabricmc:fabric-mixin-compile-extensions:" + Constants.MIXIN_COMPILE_EXTENSIONS_VERSION);
+						"net.fabricmc:fabric-mixin-compile-extensions:" + Constants.MIXIN_COMPILE_EXTENSIONS_VERSION);
 			}
 		}
 
 		for (T task : invokerTasks) {
-			passMixinArguments(task);
+			if (task instanceof RemapJarTask) {
+				passMixinArguments(task, ((RemapJarTask) task).getFromM().get(), ((RemapJarTask) task).getToM().get());
+			} else {
+				// TODO: Correct approach?
+				// Assume named -> intermediary is desired for non-remapJar - Probably in dev?
+				passMixinArguments(task, "named", "intermediary");
+			}
 		}
 	}
 
