@@ -36,6 +36,7 @@ import org.cadixdev.lorenz.MappingSet;
 import org.cadixdev.mercury.Mercury;
 import org.cadixdev.mercury.remapper.MercuryRemapper;
 import org.gradle.api.Project;
+import org.gradle.api.plugins.JavaPlugin;
 import org.zeroturnaround.zip.ZipUtil;
 
 import net.fabricmc.loom.LoomGradleExtension;
@@ -203,17 +204,23 @@ public class SourceRemapper {
 		Mercury m = new Mercury();
 
 		for (File file : project.getConfigurations().getByName(Constants.Configurations.MINECRAFT_DEPENDENCIES).getFiles()) {
-			m.getClassPath().add(file.toPath());
+			if (file.exists()) {
+				m.getClassPath().add(file.toPath());
+			}
 		}
 
 		if (!toNamed) {
-			for (File file : project.getConfigurations().getByName("compileClasspath").getFiles()) {
-				m.getClassPath().add(file.toPath());
+			for (File file : project.getConfigurations().getByName(JavaPlugin.COMPILE_CLASSPATH_CONFIGURATION_NAME).getFiles()) {
+				if (file.exists()) {
+					m.getClassPath().add(file.toPath());
+				}
 			}
 		} else {
 			for (RemappedConfigurationEntry entry : Constants.MOD_COMPILE_ENTRIES) {
 				for (File inputFile : project.getConfigurations().getByName(entry.getSourceConfiguration()).getFiles()) {
-					m.getClassPath().add(inputFile.toPath());
+					if (inputFile.exists()) {
+						m.getClassPath().add(inputFile.toPath());
+					}
 				}
 			}
 		}
