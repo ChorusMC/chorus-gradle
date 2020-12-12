@@ -108,8 +108,12 @@ checkstyleMain {
 
 gradlePlugin {
 	plugins {
-		fabricLoom {
+		fabricLoomLegacy {
 			id = 'fabric-loom'
+			implementationClass = 'net.fabricmc.loom.LegacyLoomPlugin'
+		}
+		fabricLoom {
+			id = 'net.fabricmc.gradle.loom'
 			implementationClass = 'net.fabricmc.loom.LoomGradlePlugin'
 		}
 	}
