@@ -94,7 +94,7 @@ public abstract class AnnotationProcessorInvoker<T extends Task> {
 				project.getLogger().info("Adding mixin to classpath of AP config: " + processorConfig.getName());
 				// Pass named MC classpath to mixin AP classpath
 				processorConfig.extendsFrom(
-								configs.getByName(Constants.Configurations.MINECRAFT_NAMED),
+								configs.getByName(Constants.Configurations.MINECRAFT_NAMED_COMPILE),
 								configs.getByName(Constants.Configurations.MOD_COMPILE_CLASSPATH_MAPPED),
 								configs.getByName(Constants.Configurations.MAPPINGS_FINAL)
 				);

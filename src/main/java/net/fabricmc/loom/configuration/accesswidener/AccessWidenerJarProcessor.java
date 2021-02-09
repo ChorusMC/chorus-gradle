@@ -55,6 +55,7 @@ import net.fabricmc.accesswidener.AccessWidenerVisitor;
 import net.fabricmc.accesswidener.AccessWidenerWriter;
 import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.configuration.processors.JarProcessor;
+import net.fabricmc.loom.configuration.processors.Environment;
 import net.fabricmc.loom.util.Checksum;
 import net.fabricmc.loom.util.Constants;
 import net.fabricmc.tinyremapper.TinyRemapper;
@@ -67,6 +68,11 @@ public class AccessWidenerJarProcessor implements JarProcessor {
 
 	public AccessWidenerJarProcessor(Project project) {
 		this.project = project;
+	}
+
+	@Override
+	public Environment getEnvironment() {
+		return Environment.BOTH;
 	}
 
 	@Override

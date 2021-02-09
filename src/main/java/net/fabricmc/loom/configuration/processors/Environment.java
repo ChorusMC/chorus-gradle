@@ -24,20 +24,8 @@
 
 package net.fabricmc.loom.configuration.processors;
 
-import java.io.File;
-
-public interface JarProcessor {
-	Environment getEnvironment();
-
-	void setup();
-
-	/**
-	 * Currently this is a destructive process that replaces the existing jar.
-	 */
-	void process(File file);
-
-	/**
-	 * Return true to make all jar processors run again, return false to use the existing results of jar processing.
-	 */
-	boolean isInvalid(File file);
+public enum Environment {
+	COMPILE,
+	RUNTIME,
+	BOTH
 }

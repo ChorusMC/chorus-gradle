@@ -143,8 +143,10 @@ public class MinecraftMappedProvider extends DependencyProvider {
 	protected void addDependencies(DependencyInfo dependency, Consumer<Runnable> postPopulationScheduler) {
 		getProject().getRepositories().flatDir(repository -> repository.dir(getJarDirectory(getExtension().getUserCache(), "mapped")));
 
-		getProject().getDependencies().add(Constants.Configurations.MINECRAFT_NAMED,
+		getProject().getDependencies().add(Constants.Configurations.MINECRAFT_NAMED_COMPILE,
 				getProject().getDependencies().module("net.minecraft:minecraft:" + getJarVersionString("mapped")));
+		getProject().getDependencies().add(Constants.Configurations.MINECRAFT_NAMED_RUNTIME,
+					getProject().getDependencies().module("net.minecraft:minecraft:" + getJarVersionString("mapped")));
 	}
 
 	public void initFiles(MinecraftProvider minecraftProvider, MappingsProvider mappingsProvider) {
@@ -171,6 +173,6 @@ public class MinecraftMappedProvider extends DependencyProvider {
 
 	@Override
 	public String getTargetConfig() {
-		return Constants.Configurations.MINECRAFT_NAMED;
+		return Constants.Configurations.MINECRAFT_NAMED_COMPILE;
 	}
 }

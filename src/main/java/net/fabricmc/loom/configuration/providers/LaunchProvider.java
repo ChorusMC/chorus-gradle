@@ -128,7 +128,7 @@ public class LaunchProvider extends DependencyProvider {
 
 	@Override
 	public String getTargetConfig() {
-		return Constants.Configurations.MINECRAFT_NAMED;
+		return Constants.Configurations.MINECRAFT_NAMED_RUNTIME;
 	}
 
 	public static class LaunchConfig {

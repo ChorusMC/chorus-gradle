@@ -25,6 +25,7 @@
 package net.fabricmc.loom.configuration.processors;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 public class JarProcessorManager {
@@ -42,16 +43,32 @@ public class JarProcessorManager {
 		return !jarProcessors.isEmpty();
 	}
 
-	public boolean isInvalid(File file) {
+	public List<JarProcessor> filter(Environment environment) {
+		List<JarProcessor> processors = new ArrayList<>();
+
+		for (JarProcessor processor : jarProcessors) {
+			if (processor.getEnvironment() == environment) {
+				processors.add(processor);
+			}
+		}
+
+		return processors;
+	}
+
+	public boolean hasEnvironment(Environment environment) {
+		return !this.filter(environment).isEmpty();
+	}
+
+	public boolean isInvalid(Environment environment, File file) {
 		if (!file.exists()) {
 			return true;
 		}
 
-		return jarProcessors.stream().anyMatch(jarProcessor -> jarProcessor.isInvalid(file));
+		return this.filter(environment).stream().anyMatch(jarProcessor -> jarProcessor.isInvalid(file));
 	}
 
-	public void process(File file) {
-		for (JarProcessor jarProcessor : jarProcessors) {
+	public void process(Environment environment, File file) {
+		for (JarProcessor jarProcessor : this.filter(environment)) {
 			jarProcessor.process(file);
 		}
 	}
