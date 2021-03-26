@@ -28,16 +28,20 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -104,6 +108,16 @@ public class FabricCFRDecompiler implements LoomDecompiler {
 		manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
 		Set<String> addedDirectories = new HashSet<>();
 
+		ExecutorService workerService = Executors.newFixedThreadPool(metaData.numberOfThreads);
+		ExecutorService outputService = Executors.newSingleThreadExecutor();
+
+		List<Future<?>> decompileFutures = new LinkedList<>();
+		List<Future<?>> outputFutures = Collections.synchronizedList(new LinkedList<>());
+
+		// Is this really the best way?
+		ThreadLocal<String> currentClassName = new ThreadLocal<>();
+		Map<String, Map<Integer, Integer>> classLineMappings = new ConcurrentHashMap<>();
+
 		try (OutputStream fos = Files.newOutputStream(sourcesDestination); JarOutputStream jos = new JarOutputStream(fos, manifest); ZipFile inputZip = new ZipFile(compiledJar.toFile())) {
 			CfrDriver driver = new CfrDriver.Builder()
 					.withOptions(ImmutableMap.of(
@@ -146,6 +160,8 @@ public class FabricCFRDecompiler implements LoomDecompiler {
 									return Collections.singletonList(SinkClass.STRING);
 								case JAVA:
 									return Collections.singletonList(SinkClass.DECOMPILED);
+								case LINENUMBER:
+									return Collections.singletonList(SinkClass.LINE_NUMBER_MAPPING);
 								default:
 									return Collections.emptyList();
 							}
@@ -159,11 +175,54 @@ public class FabricCFRDecompiler implements LoomDecompiler {
 									return (p) -> project.getLogger().debug((String) p);
 								case JAVA:
 									return (Sink<T>) decompiledSink(jos, addedDirectories);
+								case LINENUMBER:
+									return (Sink<T>) lineNumberMappingSink();
 								case EXCEPTION:
 									return (e) -> project.getLogger().error((String) e);
 							}
 
 							return null;
+						}
+
+						private Sink<SinkReturns.Decompiled> decompiledSink(JarOutputStream jos, Set<String> addedDirectories) {
+							return decompiled -> {
+								String filename = decompiled.getPackageName().replace('.', '/');
+								if (!filename.isEmpty()) filename += "/";
+								filename += decompiled.getClassName() + ".java";
+
+								byte[] data = decompiled.getJava().getBytes(Charsets.UTF_8);
+
+								final String outputName = filename;
+								outputFutures.add(outputService.submit(() -> {
+									writeToJar(outputName, data, jos, addedDirectories);
+								}));
+							};
+						}
+
+						private Sink<SinkReturns.LineNumberMapping> lineNumberMappingSink() {
+							return mapping -> {
+								NavigableMap<Integer, Integer> classFileMappings = mapping.getClassFileMappings();
+								NavigableMap<Integer, Integer> mappings = mapping.getMappings();
+
+								if (classFileMappings == null || mappings == null) {
+									return;
+								}
+
+								String className = currentClassName.get();
+
+								Map<Integer, Integer> classMap = classLineMappings.computeIfAbsent(className, (k) -> new TreeMap<>(Comparator.comparingInt(value -> value)));
+
+								for (Map.Entry<Integer, Integer> entry : mappings.entrySet()) {
+									Integer src = classFileMappings.get(entry.getKey());
+									Integer dest = entry.getValue();
+
+									if (src == null || dest == null) {
+										continue;
+									}
+
+									classMap.put(src, dest);
+								}
+							};
 						}
 					})
 					.build();
@@ -173,17 +232,24 @@ public class FabricCFRDecompiler implements LoomDecompiler {
 									.filter(input -> input.endsWith(".class"))
 									.collect(Collectors.toList());
 
-			ExecutorService executorService = Executors.newFixedThreadPool(metaData.numberOfThreads);
-			List<Future<?>> futures = new LinkedList<>();
+
+
 
 			for (String clazz : classes) {
-				futures.add(executorService.submit(() -> {
+				decompileFutures.add(workerService.submit(() -> {
 					loggerMap.computeIfAbsent(Thread.currentThread().getId(), createLogger).progress(clazz);
+					currentClassName.set(clazz);
 					driver.analyse(Collections.singletonList(clazz));
 				}));
 			}
 
-			for (Future<?> future : futures) {
+			workerService.shutdown();
+			for (Future<?> future : decompileFutures) {
+				future.get();
+			}
+
+			outputService.shutdown();
+			for (Future<?> future : outputFutures) {
 				future.get();
 			}
 		} catch (IOException | InterruptedException | ExecutionException e) {
@@ -191,22 +257,15 @@ public class FabricCFRDecompiler implements LoomDecompiler {
 		} finally {
 			loggerMap.forEach((threadId, progressLogger) -> progressLogger.completed());
 		}
+
+		try {
+			writeLineMap(linemapDestination, classLineMappings);
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to write line map", e);
+		}
 	}
 
-	private static OutputSinkFactory.Sink<SinkReturns.Decompiled> decompiledSink(JarOutputStream jos, Set<String> addedDirectories) {
-		return decompiled -> {
-			String filename = decompiled.getPackageName().replace('.', '/');
-			if (!filename.isEmpty()) filename += "/";
-			filename += decompiled.getClassName() + ".java";
-
-			byte[] data = decompiled.getJava().getBytes(Charsets.UTF_8);
-
-			writeToJar(filename, data, jos, addedDirectories);
-		};
-	}
-
-	// TODO move to task queue?
-	private static synchronized void writeToJar(String filename, byte[] data, JarOutputStream jos, Set<String> addedDirectories) {
+	private static void writeToJar(String filename, byte[] data, JarOutputStream jos, Set<String> addedDirectories) {
 		String[] path = filename.split("/");
 		String pathPart = "";
 
@@ -236,6 +295,31 @@ public class FabricCFRDecompiler implements LoomDecompiler {
 			jos.closeEntry();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
+		}
+	}
+
+	private static void writeLineMap(Path linemapDestination, Map<String, Map<Integer, Integer>> classLineMappings) throws IOException {
+		try (PrintWriter lineMapWriter = new PrintWriter(Files.newBufferedWriter(linemapDestination))) {
+			for (Map.Entry<String, Map<Integer, Integer>> entry : classLineMappings.entrySet()) {
+				String className = entry.getKey();
+				Map<Integer, Integer> lineMappings = entry.getValue();
+
+				int maxLine = 0;
+				int maxLineDest = 0;
+				StringBuilder builder = new StringBuilder();
+
+				for (Map.Entry<Integer, Integer> lineEntry : lineMappings.entrySet()) {
+					int sourceLine = lineEntry.getKey();
+					int targetLine = lineEntry.getValue();
+
+					maxLine = Math.max(maxLine, sourceLine);
+					maxLineDest = Math.max(maxLineDest, targetLine);
+					builder.append("\t").append(sourceLine).append("\t").append(targetLine).append("\n");
+				}
+
+				lineMapWriter.println(className.replace(".class", "") + "\t" + maxLine + "\t" + maxLineDest);
+				lineMapWriter.println(builder.toString());
+			}
 		}
 	}
 }

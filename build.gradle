@@ -65,7 +65,7 @@ dependencies {
 
 	// decompilers
 	implementation ('net.fabricmc:fabric-fernflower:1.3.0')
-	implementation ('org.benf:cfr:0.150')
+	implementation ('org.benf:cfr:0.151')
 
 	// source code remapping
 	implementation ('org.cadixdev:mercury:0.1.0-rc1')

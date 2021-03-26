@@ -30,7 +30,7 @@ import spock.lang.Unroll
 
 import static org.gradle.testkit.runner.TaskOutcome.SUCCESS
 
-class DecompileTest extends Specification implements ProjectTestTrait {
+class CFRDecompileTest extends Specification implements ProjectTestTrait {
 	@Override
 	String name() {
 		"decompile"
@@ -46,9 +46,6 @@ class DecompileTest extends Specification implements ProjectTestTrait {
 
 		where:
 			decompiler 		| task								| gradle
-			'fernflower'	| "genSources"						| "6.8.3"
-			'fernflower'	| "genSources"						| "4.9"
-			'fernflower'	| "genSources"						| "7.0-rc-1"
 			'cfr' 			| "genSourcesWithExperimentalCfr"	| "6.8.3"
 	}
 }
