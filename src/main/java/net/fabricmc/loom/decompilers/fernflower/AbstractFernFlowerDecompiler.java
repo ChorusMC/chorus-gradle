@@ -65,12 +65,13 @@ public abstract class AbstractFernFlowerDecompiler implements LoomDecompiler {
 
 		project.getLogging().captureStandardOutput(LogLevel.LIFECYCLE);
 
-		Map<String, Object> options = new HashMap<String, Object>() {{
+		Map<String, Object> options = new HashMap<>() {{
 				put(IFernflowerPreferences.DECOMPILE_GENERIC_SIGNATURES, "1");
 				put(IFernflowerPreferences.BYTECODE_SOURCE_MAPPING, "1");
 				put(IFernflowerPreferences.REMOVE_SYNTHETIC, "1");
 				put(IFernflowerPreferences.LOG_LEVEL, "trace");
-				put(IFernflowerPreferences.THREADS, metaData.numberOfThreads);
+				put(IFernflowerPreferences.THREADS, metaData.numberOfThreads());
+				put(IFernflowerPreferences.INDENT_STRING, "\t");
 			}};
 
 		List<String> args = new ArrayList<>();
@@ -79,10 +80,10 @@ public abstract class AbstractFernFlowerDecompiler implements LoomDecompiler {
 		args.add(absolutePathOf(compiledJar));
 		args.add("-o=" + absolutePathOf(sourcesDestination));
 		args.add("-l=" + absolutePathOf(linemapDestination));
-		args.add("-m=" + absolutePathOf(metaData.javaDocs));
+		args.add("-m=" + absolutePathOf(metaData.javaDocs()));
 
 		// TODO, Decompiler breaks on jemalloc, J9 module-info.class?
-		for (Path library : metaData.libraries) {
+		for (Path library : metaData.libraries()) {
 			args.add("-e=" + absolutePathOf(library));
 		}
 
@@ -99,46 +100,55 @@ public abstract class AbstractFernFlowerDecompiler implements LoomDecompiler {
 		Map<String, ProgressLogger> inUseLoggers = new HashMap<>();
 
 		progressGroup.started();
-		ExecResult result = ForkingJavaExec.javaexec(project.getRootProject(), spec -> {
-			spec.setMain(fernFlowerExecutor().getName());
-			spec.jvmArgs("-Xms200m", "-Xmx3G");
-			spec.setArgs(args);
-			spec.setErrorOutput(System.err);
-			spec.setStandardOutput(new ConsumingOutputStream(line -> {
-				if (line.startsWith("Listening for transport") || !line.contains("::")) {
-					System.out.println(line);
-					return;
-				}
-
-				int sepIdx = line.indexOf("::");
-				String id = line.substring(0, sepIdx).trim();
-				String data = line.substring(sepIdx + 2).trim();
-
-				ProgressLogger logger = inUseLoggers.get(id);
-
-				String[] segs = data.split(" ");
-
-				if (segs[0].equals("waiting")) {
-					if (logger != null) {
-						logger.progress("Idle..");
-						inUseLoggers.remove(id);
-						freeLoggers.push(logger);
-					}
-				} else {
-					if (logger == null) {
-						if (!freeLoggers.isEmpty()) {
-							logger = freeLoggers.pop();
-						} else {
-							logger = loggerFactory.get();
+		ExecResult result = ForkingJavaExec.javaexec(
+				project,
+				spec -> {
+					spec.getMainClass().set(fernFlowerExecutor().getName());
+					spec.jvmArgs("-Xms200m", "-Xmx3G");
+					spec.setArgs(args);
+					spec.setErrorOutput(new ConsumingOutputStream(line -> {
+						if (line.startsWith("Inconsistent inner class entries")) {
+							// Suppress this
+							return;
 						}
 
-						inUseLoggers.put(id, logger);
-					}
+						System.err.println(line);
+					}));
+					spec.setStandardOutput(new ConsumingOutputStream(line -> {
+						if (line.startsWith("Listening for transport") || !line.contains("::")) {
+							System.out.println(line);
+							return;
+						}
 
-					logger.progress(data);
-				}
-			}));
-		});
+						int sepIdx = line.indexOf("::");
+						String id = line.substring(0, sepIdx).trim();
+						String data = line.substring(sepIdx + 2).trim();
+
+						ProgressLogger logger = inUseLoggers.get(id);
+
+						String[] segs = data.split(" ");
+
+						if (segs[0].equals("waiting")) {
+							if (logger != null) {
+								logger.progress("Idle..");
+								inUseLoggers.remove(id);
+								freeLoggers.push(logger);
+							}
+						} else {
+							if (logger == null) {
+								if (!freeLoggers.isEmpty()) {
+									logger = freeLoggers.pop();
+								} else {
+									logger = loggerFactory.get();
+								}
+
+								inUseLoggers.put(id, logger);
+							}
+
+							logger.progress(data);
+						}
+					}));
+				});
 		inUseLoggers.values().forEach(ProgressLogger::completed);
 		freeLoggers.forEach(ProgressLogger::completed);
 		progressGroup.completed();

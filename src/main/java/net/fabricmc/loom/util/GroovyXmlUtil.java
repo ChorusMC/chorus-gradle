@@ -29,14 +29,15 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import groovy.util.Node;
+import groovy.xml.QName;
 
 public final class GroovyXmlUtil {
 	private GroovyXmlUtil() { }
 
 	public static Node getOrCreateNode(Node parent, String name) {
 		for (Object object : parent.children()) {
-			if (object instanceof Node && name.equals(((Node) object).name())) {
-				return (Node) object;
+			if (object instanceof Node node && isSameName(node.name(), name)) {
+				return node;
 			}
 		}
 
@@ -45,12 +46,29 @@ public final class GroovyXmlUtil {
 
 	public static Optional<Node> getNode(Node parent, String name) {
 		for (Object object : parent.children()) {
-			if (object instanceof Node && name.equals(((Node) object).name())) {
-				return Optional.of((Node) object);
+			if (object instanceof Node node && isSameName(node.name(), name)) {
+				return Optional.of(node);
 			}
 		}
 
 		return Optional.empty();
+	}
+
+	private static boolean isSameName(Object nodeName, String givenName) {
+		if (nodeName instanceof String) {
+			return nodeName.equals(givenName);
+		}
+
+		if (nodeName instanceof QName qName) {
+			return qName.matches(givenName);
+		}
+
+		// New groovy 3 (gradle 7) class
+		if (nodeName instanceof groovy.namespace.QName qName) {
+			return qName.matches(givenName);
+		}
+
+		throw new UnsupportedOperationException("Cannot determine if " + nodeName.getClass() + " is the same as a String");
 	}
 
 	public static Stream<Node> childrenNodesStream(Node node) {

@@ -1,0 +1,63 @@
+plugins {
+	id "java"
+	id "java-library"
+	id 'fabric-loom' apply false
+}
+
+allprojects {
+	apply plugin: "fabric-loom"
+
+	version = "1.0.0"
+
+	tasks.withType(JavaCompile).configureEach {
+		def targetVersion = 8
+		if (JavaVersion.current().isJava9Compatible()) {
+			it.options.release = targetVersion
+		} else {
+			sourceCompatibility = JavaVersion.toVersion(targetVersion)
+			targetCompatibility = JavaVersion.toVersion(targetVersion)
+		}
+
+		it.options.encoding = "UTF-8"
+	}
+
+	dependencies {
+		// To change the versions see the gradle.properties file
+		minecraft "com.mojang:minecraft:1.16.5"
+		mappings "net.fabricmc:yarn:1.16.5+build.5:v2"
+		modImplementation "net.fabricmc:fabric-loader:0.11.2"
+
+		modImplementation "net.fabricmc.fabric-api:fabric-api:0.31.0+1.16"
+
+	}
+
+	configurations {
+		dev
+	}
+
+	jar {
+		archiveClassifier.set "dev"
+	}
+
+	loom {
+		shareCaches = true
+	}
+
+	java {
+		withSourcesJar()
+	}
+
+}
+
+dependencies {
+	afterEvaluate {
+		subprojects.each {
+			include project("${it.name}:")
+		}
+	}
+
+	include fabricApi.module("fabric-api-base", "0.31.0+1.16")
+}
+
+archivesBaseName = "multiproject"
+version = "1.0.0"

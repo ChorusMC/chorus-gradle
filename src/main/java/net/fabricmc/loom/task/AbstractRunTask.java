@@ -34,28 +34,21 @@ import java.util.function.Function;
 import org.gradle.api.Project;
 import org.gradle.api.tasks.JavaExec;
 
-import net.fabricmc.loom.LoomGradleExtension;
-import net.fabricmc.loom.util.RunConfig;
+import net.fabricmc.loom.configuration.ide.RunConfig;
 
 public abstract class AbstractRunTask extends JavaExec {
-	private final Function<Project, RunConfig> configProvider;
-	private RunConfig config;
+	private final RunConfig config;
 
-	public AbstractRunTask(Function<Project, RunConfig> config) {
+	public AbstractRunTask(Function<Project, RunConfig> configProvider) {
 		super();
 		setGroup("fabric");
-		this.configProvider = config;
+		this.config = configProvider.apply(getProject());
 
-		classpath(getProject().getConfigurations().getByName("runtimeClasspath"));
-		classpath(this.getProject().getExtensions().getByType(LoomGradleExtension.class).getUnmappedModCollection());
+		setClasspath(config.sourceSet.getRuntimeClasspath());
 	}
 
 	@Override
 	public void exec() {
-		if (config == null) {
-			config = configProvider.apply(getProject());
-		}
-
 		List<String> argsSplit = new ArrayList<>();
 		String[] args = config.programArgs.split(" ");
 		int partPos = -1;
@@ -85,18 +78,13 @@ public abstract class AbstractRunTask extends JavaExec {
 		}
 
 		args(argsSplit);
-		LoomGradleExtension extension = this.getProject().getExtensions().getByType(LoomGradleExtension.class);
-		setWorkingDir(new File(getProject().getRootDir(), extension.runDir));
+		setWorkingDir(new File(getProject().getRootDir(), config.runDir));
 
 		super.exec();
 	}
 
 	@Override
 	public void setWorkingDir(File dir) {
-		if (config == null) {
-			config = configProvider.apply(getProject());
-		}
-
 		if (!dir.exists()) {
 			dir.mkdirs();
 		}
@@ -106,19 +94,11 @@ public abstract class AbstractRunTask extends JavaExec {
 
 	@Override
 	public String getMain() {
-		if (config == null) {
-			config = configProvider.apply(getProject());
-		}
-
 		return config.mainClass;
 	}
 
 	@Override
 	public List<String> getJvmArgs() {
-		if (config == null) {
-			config = configProvider.apply(getProject());
-		}
-
 		List<String> superArgs = super.getJvmArgs();
 		List<String> args = new ArrayList<>(superArgs != null ? superArgs : Collections.emptyList());
 		args.addAll(Arrays.asList(config.vmArgs.split(" ")));

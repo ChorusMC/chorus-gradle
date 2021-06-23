@@ -4,7 +4,7 @@
     <module name="%IDEA_MODULE%" />
     <option name="PROGRAM_PARAMETERS" value="%PROGRAM_ARGS%" />
     <option name="VM_PARAMETERS" value="%VM_ARGS%" />
-    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/run/" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/%RUN_DIRECTORY%/" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

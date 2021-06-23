@@ -30,21 +30,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.TaskAction;
 
-import net.fabricmc.loom.LoomGradlePlugin;
+import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.api.decompilers.DecompilationMetadata;
 import net.fabricmc.loom.api.decompilers.LoomDecompiler;
-import net.fabricmc.loom.util.LineNumberRemapper;
-import net.fabricmc.loom.util.progress.ProgressLogger;
+import net.fabricmc.loom.configuration.providers.mappings.MappingsProviderImpl;
+import net.fabricmc.loom.decompilers.LineNumberRemapper;
+import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.gradle.ProgressLogger;
 import net.fabricmc.stitch.util.StitchUtil;
 
 public class GenerateSourcesTask extends AbstractLoomTask {
 	public final LoomDecompiler decompiler;
+
+	private File inputJar;
 
 	@Inject
 	public GenerateSourcesTask(LoomDecompiler decompiler) {
@@ -58,30 +64,22 @@ public class GenerateSourcesTask extends AbstractLoomTask {
 	public void doTask() throws Throwable {
 		int threads = Runtime.getRuntime().availableProcessors();
 		Path javaDocs = getExtension().getMappingsProvider().tinyMappings.toPath();
-		Collection<Path> libraries = getExtension().getMinecraftProvider().getLibraryProvider().getLibraries()
+		Collection<Path> libraries = getProject().getConfigurations().getByName(Constants.Configurations.MINECRAFT_DEPENDENCIES).getFiles()
 						.stream().map(File::toPath).collect(Collectors.toSet());
 
 		DecompilationMetadata metadata = new DecompilationMetadata(threads, javaDocs, libraries);
-		Path compiledJar = getExtension().getMappingsProvider().mappedProvider.getMappedJar().toPath();
-		Path sourcesDestination = LoomGradlePlugin.getMappedByproduct(getProject(), "-sources.jar").toPath();
-		Path linemap = LoomGradlePlugin.getMappedByproduct(getProject(), "-sources.lmap").toPath();
-		decompiler.decompile(compiledJar, sourcesDestination, linemap, metadata);
+		Path runtimeJar = getExtension().getMappingsProvider().mappedProvider.getMappedJar().toPath();
+		Path sourcesDestination = getMappedJarFileWithSuffix("-sources.jar").toPath();
+		Path linemap = getMappedJarFileWithSuffix("-sources.lmap").toPath();
+		decompiler.decompile(inputJar.toPath(), sourcesDestination, linemap, metadata);
 
 		if (Files.exists(linemap)) {
-			Path linemappedJarDestination = LoomGradlePlugin.getMappedByproduct(getProject(), "-linemapped.jar").toPath();
+			Path linemappedJarDestination = getMappedJarFileWithSuffix("-linemapped.jar").toPath();
 
-			remapLineNumbers(compiledJar, linemap, linemappedJarDestination);
+			// Line map the actually jar used to run the game, not the one used to decompile
+			remapLineNumbers(runtimeJar, linemap, linemappedJarDestination);
 
-			// In order for IDEs to recognize the new line mappings, we need to overwrite the existing compiled jar
-			// with the linemapped one. In the name of not destroying the existing jar, we will copy it to somewhere else.
-			Path unlinemappedJar = LoomGradlePlugin.getMappedByproduct(getProject(), "-unlinemapped.jar").toPath();
-
-			// The second time genSources is ran, we want to keep the existing unlinemapped jar.
-			if (!Files.exists(unlinemappedJar)) {
-				Files.copy(compiledJar, unlinemappedJar);
-			}
-
-			Files.copy(linemappedJarDestination, compiledJar, StandardCopyOption.REPLACE_EXISTING);
+			Files.copy(linemappedJarDestination, runtimeJar, StandardCopyOption.REPLACE_EXISTING);
 			Files.delete(linemappedJarDestination);
 		}
 	}
@@ -91,7 +89,7 @@ public class GenerateSourcesTask extends AbstractLoomTask {
 		LineNumberRemapper remapper = new LineNumberRemapper();
 		remapper.readMappings(linemap.toFile());
 
-		ProgressLogger progressLogger = net.fabricmc.loom.util.progress.ProgressLogger.getProgressFactory(getProject(), getClass().getName());
+		ProgressLogger progressLogger = ProgressLogger.getProgressFactory(getProject(), getClass().getName());
 		progressLogger.start("Adjusting line numbers", "linemap");
 
 		try (StitchUtil.FileSystemDelegate inFs = StitchUtil.getJarFileSystem(oldCompiledJar.toFile(), true);
@@ -100,5 +98,28 @@ public class GenerateSourcesTask extends AbstractLoomTask {
 		}
 
 		progressLogger.completed();
+	}
+
+	private File getMappedJarFileWithSuffix(String suffix) {
+		LoomGradleExtension extension = getProject().getExtensions().getByType(LoomGradleExtension.class);
+		MappingsProviderImpl mappingsProvider = extension.getMappingsProvider();
+		File mappedJar = mappingsProvider.mappedProvider.getMappedJar();
+		String path = mappedJar.getAbsolutePath();
+
+		if (!path.toLowerCase(Locale.ROOT).endsWith(".jar")) {
+			throw new RuntimeException("Invalid mapped JAR path: " + path);
+		}
+
+		return new File(path.substring(0, path.length() - 4) + suffix);
+	}
+
+	@InputFile
+	public File getInputJar() {
+		return inputJar;
+	}
+
+	public GenerateSourcesTask setInputJar(File inputJar) {
+		this.inputJar = inputJar;
+		return this;
 	}
 }

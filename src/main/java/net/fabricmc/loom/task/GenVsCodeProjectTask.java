@@ -30,14 +30,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.Project;
 import org.gradle.api.tasks.TaskAction;
 
-import net.fabricmc.loom.LoomGradleExtension;
-import net.fabricmc.loom.util.RunConfig;
+import net.fabricmc.loom.LoomGradlePlugin;
+import net.fabricmc.loom.configuration.ide.RunConfig;
+import net.fabricmc.loom.configuration.ide.RunConfigSettings;
 
 // Recommended vscode plugins:
 // https://marketplace.visualstudio.com/items?itemName=redhat.java
@@ -47,7 +46,6 @@ public class GenVsCodeProjectTask extends AbstractLoomTask {
 	@TaskAction
 	public void genRuns() {
 		Project project = getProject();
-		LoomGradleExtension extension = getExtension();
 		File projectDir = project.file(".vscode");
 
 		if (!projectDir.exists()) {
@@ -61,22 +59,22 @@ public class GenVsCodeProjectTask extends AbstractLoomTask {
 		}
 
 		VsCodeLaunch launch = new VsCodeLaunch();
-		launch.add(RunConfig.clientRunConfig(project));
-		launch.add(RunConfig.serverRunConfig(project));
 
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
-		String json = gson.toJson(launch);
+		for (RunConfigSettings settings : getExtension().getRunConfigs()) {
+			if (!settings.isIdeConfigGenerated()) {
+				continue;
+			}
+
+			launch.add(RunConfig.runConfig(project, settings));
+			settings.makeRunDir();
+		}
+
+		String json = LoomGradlePlugin.GSON.toJson(launch);
 
 		try {
 			FileUtils.writeStringToFile(launchJson, json, StandardCharsets.UTF_8);
 		} catch (IOException e) {
 			throw new RuntimeException("Failed to write launch.json", e);
-		}
-
-		File runDir = new File(project.getRootDir(), extension.runDir);
-
-		if (!runDir.exists()) {
-			runDir.mkdirs();
 		}
 	}
 
@@ -94,7 +92,7 @@ public class GenVsCodeProjectTask extends AbstractLoomTask {
 		public String type = "java";
 		public String name;
 		public String request = "launch";
-		public String cwd = "${workspaceFolder}/run";
+		public String cwd;
 		public String console = "internalConsole";
 		public boolean stopOnEntry = false;
 		public String mainClass;
@@ -106,6 +104,7 @@ public class GenVsCodeProjectTask extends AbstractLoomTask {
 			this.mainClass = runConfig.mainClass;
 			this.vmArgs = runConfig.vmArgs;
 			this.args = runConfig.programArgs;
+			this.cwd = "${workspaceFolder}/" + runConfig.runDir;
 		}
 	}
 }

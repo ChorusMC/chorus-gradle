@@ -1,0 +1,4 @@
+Trick gradle into thinking that loom is signed to skip over transforming all classes in the jar.
+This is required to get the bootstrap to well bootstrap on older gradle versions that dont support java 16.
+
+See https://github.com/gradle/gradle/blob/master/subprojects/core/src/main/java/org/gradle/internal/classpath/InstrumentingClasspathFileTransformer.java#L129

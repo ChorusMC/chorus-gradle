@@ -1,0 +1,25 @@
+plugins {
+	id 'fabric-loom'
+	id 'maven-publish'
+}
+
+archivesBaseName = "fabric-example-mod"
+version = "1.0.0"
+group = "com.example"
+
+println archivesBaseName
+
+repositories {
+	maven {
+		url = "http://localhost:${System.getProperty("loom.test.mavenPort")}/"
+		allowInsecureProtocol = true
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:1.16.5"
+	mappings "net.fabricmc:yarn:1.16.5+build.5:v2"
+	modImplementation "net.fabricmc:fabric-loader:0.11.2"
+
+	modImplementation System.getProperty("loom.test.resolve")
+}

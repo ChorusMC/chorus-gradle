@@ -54,7 +54,6 @@ import java.util.zip.ZipFile;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteStreams;
 import org.benf.cfr.reader.api.CfrDriver;
 import org.benf.cfr.reader.api.ClassFileSource;
 import org.benf.cfr.reader.api.OutputSinkFactory;
@@ -134,36 +133,29 @@ public class FabricCFRDecompiler implements LoomDecompiler {
 							}
 
 							try (InputStream inputStream = inputZip.getInputStream(zipEntry)) {
-								return Pair.make(ByteStreams.toByteArray(inputStream), path);
+								return Pair.make(inputStream.readAllBytes(), path);
 							}
 						}
 					})
 					.withOutputSink(new OutputSinkFactory() {
 						@Override
 						public List<SinkClass> getSupportedSinks(SinkType sinkType, Collection<SinkClass> available) {
-							switch (sinkType) {
-								case PROGRESS:
-									return Collections.singletonList(SinkClass.STRING);
-								case JAVA:
-									return Collections.singletonList(SinkClass.DECOMPILED);
-								default:
-									return Collections.emptyList();
-							}
+							return switch (sinkType) {
+								case PROGRESS -> Collections.singletonList(SinkClass.STRING);
+								case JAVA -> Collections.singletonList(SinkClass.DECOMPILED);
+								default -> Collections.emptyList();
+							};
 						}
 
 						@SuppressWarnings("unchecked")
 						@Override
 						public <T> Sink<T> getSink(SinkType sinkType, SinkClass sinkClass) {
-							switch (sinkType) {
-								case PROGRESS:
-									return (p) -> project.getLogger().debug((String) p);
-								case JAVA:
-									return (Sink<T>) decompiledSink(jos, addedDirectories);
-								case EXCEPTION:
-									return (e) -> project.getLogger().error((String) e);
-							}
-
-							return null;
+							return switch (sinkType) {
+								case PROGRESS -> (p) -> project.getLogger().debug((String) p);
+								case JAVA -> (Sink<T>) decompiledSink(jos, addedDirectories);
+								case EXCEPTION -> (e) -> project.getLogger().error((String) e);
+								default -> null;
+							};
 						}
 					})
 					.build();
@@ -173,7 +165,7 @@ public class FabricCFRDecompiler implements LoomDecompiler {
 									.filter(input -> input.endsWith(".class"))
 									.collect(Collectors.toList());
 
-			ExecutorService executorService = Executors.newFixedThreadPool(metaData.numberOfThreads);
+			ExecutorService executorService = Executors.newFixedThreadPool(metaData.numberOfThreads());
 			List<Future<?>> futures = new LinkedList<>();
 
 			for (String clazz : classes) {

@@ -39,13 +39,18 @@ public class RemapSourcesJarTask extends AbstractLoomTask {
 	private Object output;
 	private String direction = "intermediary";
 	private SourceRemapper sourceRemapper = null;
+	private boolean preserveFileTimestamps = true;
+	private boolean reproducibleFileOrder = false;
+
+	public RemapSourcesJarTask() {
+	}
 
 	@TaskAction
 	public void remap() throws Exception {
 		if (sourceRemapper == null) {
-			SourceRemapper.remapSources(getProject(), getInput(), getOutput(), direction.equals("named"));
+			SourceRemapper.remapSources(getProject(), getInput(), getOutput(), direction.equals("named"), reproducibleFileOrder, preserveFileTimestamps);
 		} else {
-			sourceRemapper.scheduleRemapSources(getInput(), getOutput());
+			sourceRemapper.scheduleRemapSources(getInput(), getOutput(), reproducibleFileOrder, preserveFileTimestamps);
 		}
 	}
 
@@ -84,5 +89,23 @@ public class RemapSourcesJarTask extends AbstractLoomTask {
 
 	public void setTargetNamespace(String value) {
 		this.direction = value;
+	}
+
+	@Input
+	public boolean isPreserveFileTimestamps() {
+		return preserveFileTimestamps;
+	}
+
+	public void setPreserveFileTimestamps(boolean preserveFileTimestamps) {
+		this.preserveFileTimestamps = preserveFileTimestamps;
+	}
+
+	@Input
+	public boolean isReproducibleFileOrder() {
+		return reproducibleFileOrder;
+	}
+
+	public void setReproducibleFileOrder(boolean reproducibleFileOrder) {
+		this.reproducibleFileOrder = reproducibleFileOrder;
 	}
 }

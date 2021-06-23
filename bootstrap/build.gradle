@@ -1,0 +1,30 @@
+plugins {
+	id 'java'
+	id 'groovy'
+}
+
+sourceCompatibility = 8
+targetCompatibility = 8
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = "UTF-8"
+	it.options.release = 8
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation gradleApi()
+
+	testImplementation(gradleTestKit())
+	testImplementation('org.spockframework:spock-core:2.0-M5-groovy-3.0') {
+		exclude module: 'groovy-all'
+	}
+}
+
+test {
+	maxHeapSize = "4096m"
+	useJUnitPlatform()
+}

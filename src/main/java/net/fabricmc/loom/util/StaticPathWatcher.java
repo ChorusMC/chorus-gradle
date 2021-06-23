@@ -61,8 +61,8 @@ public final class StaticPathWatcher {
 			for (WatchEvent<?> event : key.pollEvents()) {
 				Object ctx = event.context();
 
-				if (ctx instanceof Path) {
-					changeCache.put(((Path) ctx).toAbsolutePath(), true);
+				if (ctx instanceof Path path) {
+					changeCache.put(path.toAbsolutePath(), true);
 				}
 			}
 		}

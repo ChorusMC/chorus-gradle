@@ -37,28 +37,29 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.gradle.api.Project;
+import org.gradle.api.tasks.TaskAction;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
-import org.gradle.api.Project;
-import org.gradle.api.tasks.TaskAction;
 
-import net.fabricmc.loom.AbstractPlugin;
 import net.fabricmc.loom.LoomGradleExtension;
-import net.fabricmc.loom.util.RunConfig;
+import net.fabricmc.loom.configuration.ide.RunConfig;
+import net.fabricmc.loom.configuration.ide.RunConfigSettings;
 
 public class GenIdeaProjectTask extends AbstractLoomTask {
 	@TaskAction
 	public void genIdeaRuns() throws IOException, ParserConfigurationException, SAXException, TransformerException {
 		Project project = this.getProject();
 
+		LoomGradleExtension extension = getExtension();
+
 		// Only generate the idea runs on the root project
-		if (!AbstractPlugin.isRootProject(project)) {
+		if (!extension.isRootProject()) {
 			return;
 		}
 
-		LoomGradleExtension extension = getExtension();
 		project.getLogger().lifecycle(":Building idea workspace");
 
 		File file = project.file(project.getName() + ".iws");
@@ -82,8 +83,14 @@ public class GenIdeaProjectTask extends AbstractLoomTask {
 			throw new RuntimeException("Failed to generate IntelliJ run configurations (runManager was not found)");
 		}
 
-		runManager.appendChild(RunConfig.clientRunConfig(project).genRuns(runManager));
-		runManager.appendChild(RunConfig.serverRunConfig(project).genRuns(runManager));
+		for (RunConfigSettings settings : getExtension().getRunConfigs()) {
+			if (!settings.isIdeConfigGenerated()) {
+				continue;
+			}
+
+			runManager.appendChild(RunConfig.runConfig(project, settings).genRuns(runManager));
+			settings.makeRunDir();
+		}
 
 		TransformerFactory transformerFactory = TransformerFactory.newInstance();
 		Transformer transformer = transformerFactory.newTransformer();
@@ -92,11 +99,5 @@ public class GenIdeaProjectTask extends AbstractLoomTask {
 		transformer.setOutputProperty(OutputKeys.INDENT, "yes");
 		transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
 		transformer.transform(source, result);
-
-		File runDir = new File(getProject().getRootDir(), extension.runDir);
-
-		if (!runDir.exists()) {
-			runDir.mkdirs();
-		}
 	}
 }

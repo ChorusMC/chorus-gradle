@@ -49,10 +49,11 @@ import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.options.Option;
 
 import net.fabricmc.loom.LoomGradleExtension;
-import net.fabricmc.loom.providers.MappingsProvider;
-import net.fabricmc.loom.providers.MinecraftMappedProvider;
+import net.fabricmc.loom.configuration.providers.mappings.MappingsProviderImpl;
+import net.fabricmc.loom.configuration.providers.minecraft.MinecraftMappedProvider;
+import net.fabricmc.loom.configuration.providers.mappings.LayeredMappingSpecBuilder;
+import net.fabricmc.loom.configuration.providers.mappings.LayeredMappingsDependency;
 import net.fabricmc.loom.util.SourceRemapper;
-import net.fabricmc.loom.util.mappings.MojangMappingsDependency;
 import net.fabricmc.lorenztiny.TinyMappingsJoiner;
 import net.fabricmc.mapping.tree.TinyMappingFactory;
 import net.fabricmc.mapping.tree.TinyTree;
@@ -87,7 +88,7 @@ public class MigrateMappingsTask extends AbstractLoomTask {
 		Project project = getProject();
 		LoomGradleExtension extension = getExtension();
 
-		project.getLogger().lifecycle(":loading mappings");
+		project.getLogger().info(":loading mappings");
 
 		if (!Files.exists(inputDir) || !Files.isDirectory(inputDir)) {
 			throw new IllegalArgumentException("Could not find input directory: " + inputDir.toAbsolutePath());
@@ -96,7 +97,7 @@ public class MigrateMappingsTask extends AbstractLoomTask {
 		Files.createDirectories(outputDir);
 
 		File mappings = loadMappings();
-		MappingsProvider mappingsProvider = extension.getMappingsProvider();
+		MappingsProviderImpl mappingsProvider = extension.getMappingsProvider();
 
 		try {
 			TinyTree currentMappings = mappingsProvider.getMappings();
@@ -118,12 +119,13 @@ public class MigrateMappingsTask extends AbstractLoomTask {
 		Set<File> files;
 
 		try {
-			if (mappings.startsWith(MojangMappingsDependency.GROUP + ':' + MojangMappingsDependency.MODULE + ':') || mappings.startsWith("net.mojang.minecraft:mappings:")) {
-				if (!mappings.endsWith(":" + project.getExtensions().getByType(LoomGradleExtension.class).getMinecraftProvider().getMinecraftVersion())) {
+			if (mappings.startsWith("net.minecraft:mappings:") || mappings.startsWith("net.mojang.minecraft:mappings:")) {
+				if (!mappings.endsWith(":" + project.getExtensions().getByType(LoomGradleExtension.class).getMinecraftProvider().minecraftVersion())) {
 					throw new UnsupportedOperationException("Migrating Mojang mappings is currently only supported for the specified minecraft version");
 				}
 
-				files = new MojangMappingsDependency(project, getExtension()).resolve();
+				LayeredMappingsDependency dep = (LayeredMappingsDependency) getExtension().layered(LayeredMappingSpecBuilder::officialMojangMappings);
+				files = dep.resolve();
 			} else {
 				Dependency dependency = project.getDependencies().create(mappings);
 				files = project.getConfigurations().detachedConfiguration(dependency).resolve();
@@ -161,7 +163,7 @@ public class MigrateMappingsTask extends AbstractLoomTask {
 	private static void migrateMappings(Project project, MinecraftMappedProvider minecraftMappedProvider,
 										Path inputDir, Path outputDir, TinyTree currentMappings, TinyTree targetMappings
 	) throws IOException {
-		project.getLogger().lifecycle(":joining mappings");
+		project.getLogger().info(":joining mappings");
 
 		MappingSet mappingSet = new TinyMappingsJoiner(
 				currentMappings, "named",
@@ -191,7 +193,7 @@ public class MigrateMappingsTask extends AbstractLoomTask {
 			project.getLogger().warn("Could not remap fully!", e);
 		}
 
-		project.getLogger().lifecycle(":cleaning file descriptors");
+		project.getLogger().info(":cleaning file descriptors");
 		System.gc();
 	}
 }

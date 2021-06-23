@@ -48,4 +48,19 @@ public class OperatingSystem {
 	public static boolean is64Bit() {
 		return System.getProperty("sun.arch.data.model").contains("64");
 	}
+
+	public static boolean isWindows() {
+		return getOS().equals("windows");
+	}
+
+	public static boolean isCIBuild() {
+		String loomProperty = System.getProperty("fabric.loom.ci");
+
+		if (loomProperty != null) {
+			return loomProperty.equalsIgnoreCase("true");
+		}
+
+		// CI seems to be set by most popular CI services
+		return System.getenv("CI") != null;
+	}
 }

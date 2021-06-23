@@ -1,0 +1,5 @@
+archivesBaseName = "example"
+
+dependencies {
+	implementation project(path: ":core", configuration: "dev")
+}

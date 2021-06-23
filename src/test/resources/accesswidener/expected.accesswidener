@@ -1,0 +1,7 @@
+accessWidener	v1	intermediary
+accessible	class	net/minecraft/class_1928$class_5199
+accessible	class	net/minecraft/class_1928$class_4314
+extendable	class	net/minecraft/class_1928$class_4314
+accessible	class	net/minecraft/class_5235$class_5238
+accessible	method	net/minecraft/class_1928$class_4314	<init>	(Ljava/util/function/Supplier;Ljava/util/function/Function;Ljava/util/function/BiConsumer;Lnet/minecraft/class_1928$class_5199;)V
+extendable	method	net/minecraft/class_1928$class_4314	<init>	(Ljava/util/function/Supplier;Ljava/util/function/Function;Ljava/util/function/BiConsumer;Lnet/minecraft/class_1928$class_5199;)V

@@ -24,118 +24,62 @@
 
 package net.fabricmc.loom;
 
-import java.io.File;
-import java.util.Locale;
-
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.gradle.api.Project;
-import org.gradle.api.tasks.TaskContainer;
+import org.gradle.api.plugins.PluginAware;
 
-import net.fabricmc.loom.api.decompilers.LoomDecompiler;
-import net.fabricmc.loom.decompilers.cfr.FabricCFRDecompiler;
-import net.fabricmc.loom.decompilers.fernflower.FabricFernFlowerDecompiler;
-import net.fabricmc.loom.providers.MappingsProvider;
-import net.fabricmc.loom.task.CleanEclipseRunsTask;
-import net.fabricmc.loom.task.CleanLoomBinaries;
-import net.fabricmc.loom.task.CleanLoomMappings;
-import net.fabricmc.loom.task.DownloadAssetsTask;
-import net.fabricmc.loom.task.GenEclipseRunsTask;
-import net.fabricmc.loom.task.GenIdeaProjectTask;
-import net.fabricmc.loom.task.GenVsCodeProjectTask;
-import net.fabricmc.loom.task.GenerateSourcesTask;
-import net.fabricmc.loom.task.MigrateMappingsTask;
-import net.fabricmc.loom.task.RemapJarTask;
-import net.fabricmc.loom.task.RemapSourcesJarTask;
-import net.fabricmc.loom.task.RunClientTask;
-import net.fabricmc.loom.task.RunServerTask;
+import net.fabricmc.loom.bootstrap.BootstrappedPlugin;
+import net.fabricmc.loom.configuration.CompileConfiguration;
+import net.fabricmc.loom.configuration.FabricApiExtension;
+import net.fabricmc.loom.configuration.MavenPublication;
+import net.fabricmc.loom.configuration.ide.IdeConfiguration;
+import net.fabricmc.loom.configuration.providers.mappings.MappingsCache;
+import net.fabricmc.loom.decompilers.DecompilerConfiguration;
+import net.fabricmc.loom.task.LoomTasks;
 
-public class LoomGradlePlugin extends AbstractPlugin {
-	public static File getMappedByproduct(Project project, String suffix) {
-		LoomGradleExtension extension = project.getExtensions().getByType(LoomGradleExtension.class);
-		MappingsProvider mappingsProvider = extension.getMappingsProvider();
-		File mappedJar = mappingsProvider.mappedProvider.getMappedJar();
-		String path = mappedJar.getAbsolutePath();
-
-		if (!path.toLowerCase(Locale.ROOT).endsWith(".jar")) {
-			throw new RuntimeException("Invalid mapped JAR path: " + path);
-		}
-
-		return new File(path.substring(0, path.length() - 4) + suffix);
-	}
+public class LoomGradlePlugin implements BootstrappedPlugin {
+	public static boolean refreshDeps;
+	public static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+	public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
 	@Override
-	public void apply(Project target) {
-		super.apply(target);
+	public void apply(PluginAware target) {
+		target.getPlugins().apply(LoomRepositoryPlugin.class);
 
-		TaskContainer tasks = target.getTasks();
+		if (target instanceof Project project) {
+			apply(project);
+		}
+	}
 
-		tasks.register("cleanLoomBinaries", CleanLoomBinaries.class, t -> t.setDescription("Removes binary jars created by Loom."));
-		tasks.register("cleanLoomMappings", CleanLoomMappings.class, t -> t.setDescription("Removes mappings downloaded by Loom."));
+	public void apply(Project project) {
+		project.getLogger().lifecycle("Fabric Loom: " + LoomGradlePlugin.class.getPackage().getImplementationVersion());
 
-		tasks.register("cleanLoom").configure(task -> {
-			task.setGroup("fabric");
-			task.setDescription("Runs all Loom cleanup tasks.");
-			task.dependsOn(tasks.getByName("cleanLoomBinaries"));
-			task.dependsOn(tasks.getByName("cleanLoomMappings"));
-		});
+		refreshDeps = project.getGradle().getStartParameter().isRefreshDependencies();
 
-		tasks.register("migrateMappings", MigrateMappingsTask.class, t -> {
-			t.setDescription("Migrates mappings to a new version.");
-			t.getOutputs().upToDateWhen((o) -> false);
-		});
+		if (refreshDeps) {
+			MappingsCache.INSTANCE.invalidate();
+			project.getLogger().lifecycle("Refresh dependencies is in use, loom will be significantly slower.");
+		}
 
-		tasks.register("remapJar", RemapJarTask.class, t -> {
-			t.setDescription("Remaps the built project jar to intermediary mappings.");
-			t.setGroup("fabric");
-		});
+		// Apply default plugins
+		project.apply(ImmutableMap.of("plugin", "java"));
+		project.apply(ImmutableMap.of("plugin", "eclipse"));
+		project.apply(ImmutableMap.of("plugin", "idea"));
 
-		tasks.register("downloadAssets", DownloadAssetsTask.class, t -> t.setDescription("Downloads required assets for Fabric."));
+		// Setup extensions, loom shadows minecraft
+		project.getExtensions().create("minecraft", LoomGradleExtension.class, project);
+		project.getExtensions().add("loom", project.getExtensions().getByName("minecraft"));
+		project.getExtensions().create("fabricApi", FabricApiExtension.class, project);
 
-		tasks.register("genIdeaWorkspace", GenIdeaProjectTask.class, t -> {
-			t.setDescription("Generates an IntelliJ IDEA workspace from this project.");
-			t.dependsOn("idea", "downloadAssets");
-			t.setGroup("ide");
-		});
-
-		tasks.register("genEclipseRuns", GenEclipseRunsTask.class, t -> {
-			t.setDescription("Generates Eclipse run configurations for this project.");
-			t.dependsOn("downloadAssets");
-			t.setGroup("ide");
-		});
-
-		tasks.register("cleanEclipseRuns", CleanEclipseRunsTask.class, t -> {
-			t.setDescription("Removes Eclipse run configurations for this project.");
-			t.setGroup("ide");
-		});
-
-		tasks.register("vscode", GenVsCodeProjectTask.class, t -> {
-			t.setDescription("Generates VSCode launch configurations.");
-			t.dependsOn("downloadAssets");
-			t.setGroup("ide");
-		});
-
-		tasks.register("remapSourcesJar", RemapSourcesJarTask.class, t -> t.setDescription("Remaps the project sources jar to intermediary names."));
-
-		tasks.register("runClient", RunClientTask.class, t -> {
-			t.setDescription("Starts a development version of the Minecraft client.");
-			t.dependsOn("downloadAssets");
-			t.setGroup("fabric");
-		});
-
-		tasks.register("runServer", RunServerTask.class, t -> {
-			t.setDescription("Starts a development version of the Minecraft server.");
-			t.setGroup("fabric");
-		});
-
-		LoomGradleExtension extension = project.getExtensions().getByType(LoomGradleExtension.class);
-		extension.addDecompiler(new FabricFernFlowerDecompiler(project));
-		extension.addDecompiler(new FabricCFRDecompiler(project));
-
-		project.afterEvaluate((p) -> {
-			for (LoomDecompiler decompiler : extension.decompilers) {
-				String taskName = (decompiler instanceof FabricFernFlowerDecompiler) ? "genSources" : "genSourcesWith" + decompiler.name();
-				// decompiler will be passed to the constructor of GenerateSourcesTask
-				tasks.register(taskName, GenerateSourcesTask.class, decompiler);
-			}
-		});
+		CompileConfiguration.setupConfigurations(project);
+		IdeConfiguration.setup(project);
+		CompileConfiguration.configureCompile(project);
+		MavenPublication.configure(project);
+		LoomTasks.registerTasks(project);
+		DecompilerConfiguration.setup(project);
 	}
 }
