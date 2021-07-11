@@ -28,8 +28,10 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -42,6 +44,7 @@ import net.fabricmc.tinyremapper.IMappingProvider;
 import net.fabricmc.tinyremapper.InputTag;
 import net.fabricmc.tinyremapper.OutputConsumerPath;
 import net.fabricmc.tinyremapper.TinyRemapper;
+import net.fabricmc.tinyremapper.extension.mixin.MixinAnnotationProcessor;
 
 public class JarRemapper {
 	private final List<IMappingProvider> mappingProviders = new ArrayList<>();
@@ -64,8 +67,11 @@ public class JarRemapper {
 	}
 
 	public void remap() throws IOException {
+		MixinAnnotationProcessor mixin = new MixinAnnotationProcessor();
+
 		TinyRemapper.Builder remapperBuilder = TinyRemapper.newRemapper();
 		mappingProviders.forEach(remapperBuilder::withMappings);
+		remapperBuilder.extraPreVisitor(mixin::getPreVisitor);
 
 		if (remapOptions != null) {
 			for (Action<TinyRemapper.Builder> remapOption : remapOptions) {
@@ -108,6 +114,32 @@ public class JarRemapper {
 		}
 
 		remapData.forEach(RemapData::complete);
+
+		// TODO: REMOVE
+		IMappingProvider mixinMapping = mixin.getMapping();
+		TinyRemapper mixinRemapper = TinyRemapper.newRemapper().withMappings(mixinMapping).build();
+
+		Map<Path, InputTag> pending = new HashMap<>();
+
+		for (RemapData data : remapData) {
+			pending.put(data.output, mixinRemapper.createInputTag());
+		}
+
+		for (Map.Entry<Path, InputTag> entry : pending.entrySet()) {
+			mixinRemapper.readInputsAsync(entry.getValue(), entry.getKey());
+		}
+
+		for (Map.Entry<Path, InputTag> entry : pending.entrySet()) {
+			Path file = entry.getKey();
+			Path directory = file.getParent();
+
+			try (OutputConsumerPath consumer = new OutputConsumerPath.Builder(directory.resolve(file.getFileName().toString().replace(".jar", "-mixin.jar"))).build()) {
+				consumer.addNonClassFiles(file);
+				mixinRemapper.apply(consumer, entry.getValue());
+			}
+		}
+
+		mixinRemapper.finish();
 	}
 
 	public void addOptions(List<Action<TinyRemapper.Builder>> remapOptions) {
