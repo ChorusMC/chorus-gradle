@@ -51,7 +51,6 @@ import org.zeroturnaround.zip.ZipUtil;
 
 import net.fabricmc.loom.LoomGradleExtension;
 import net.fabricmc.loom.build.JarRemapper;
-import net.fabricmc.loom.build.MixinRefmapHelper;
 import net.fabricmc.loom.build.nesting.NestedJarPathProvider;
 import net.fabricmc.loom.build.nesting.JarNester;
 import net.fabricmc.loom.build.nesting.MergedNestedJarProvider;
@@ -161,9 +160,9 @@ public class RemapJarTask extends Jar {
 						throw new RuntimeException("Failed to remap " + input + " to " + output + " - file missing!");
 					}
 
-					if (MixinRefmapHelper.addRefmapName(extension.getRefmapName(), output)) {
-						project.getLogger().debug("Transformed mixin reference maps in output JAR!");
-					}
+//					if (MixinRefmapHelper.addRefmapName(extension.getRefmapName(), output)) {
+//						project.getLogger().debug("Transformed mixin reference maps in output JAR!");
+//					}
 
 					if (getAddNestedDependencies().getOrElse(false)) {
 						JarNester.nestJars(nestedJarProvider.provide(), output.toFile(), project.getLogger());

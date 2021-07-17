@@ -34,9 +34,6 @@ import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.api.tasks.javadoc.Javadoc;
 
 import net.fabricmc.loom.LoomGradleExtension;
-import net.fabricmc.loom.build.mixin.JavaApInvoker;
-import net.fabricmc.loom.build.mixin.KaptApInvoker;
-import net.fabricmc.loom.build.mixin.ScalaApInvoker;
 import net.fabricmc.loom.configuration.ide.SetupIntelijRunConfigs;
 import net.fabricmc.loom.configuration.providers.LaunchProvider;
 import net.fabricmc.loom.configuration.providers.MinecraftProviderImpl;
@@ -141,18 +138,19 @@ public final class CompileConfiguration {
 			System.setProperty("log4j.shutdownHookEnabled", "false");
 			System.setProperty("log4j.skipJansi", "true");
 
-			project.getLogger().info("Configuring compiler arguments for Java");
-			new JavaApInvoker(project).configureMixin();
-
-			if (project.getPluginManager().hasPlugin("scala")) {
-				project.getLogger().info("Configuring compiler arguments for Scala");
-				new ScalaApInvoker(project).configureMixin();
-			}
-
-			if (project.getPluginManager().hasPlugin("org.jetbrains.kotlin.kapt")) {
-				project.getLogger().info("Configuring compiler arguments for Kapt plugin");
-				new KaptApInvoker(project).configureMixin();
-			}
+			// disable mixin ap
+//			project.getLogger().info("Configuring compiler arguments for Java");
+//			new JavaApInvoker(project).configureMixin();
+//
+//			if (project.getPluginManager().hasPlugin("scala")) {
+//				project.getLogger().info("Configuring compiler arguments for Scala");
+//				new ScalaApInvoker(project).configureMixin();
+//			}
+//
+//			if (project.getPluginManager().hasPlugin("org.jetbrains.kotlin.kapt")) {
+//				project.getLogger().info("Configuring compiler arguments for Kapt plugin");
+//				new KaptApInvoker(project).configureMixin();
+//			}
 		});
 
 		if (p.getPluginManager().hasPlugin("org.jetbrains.kotlin.kapt")) {

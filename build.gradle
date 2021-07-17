@@ -78,7 +78,7 @@ dependencies {
 	}
 
 	// tinyfile management
-	implementation ('net.fabricmc:tiny-remapper:0.4.2+local')
+	implementation ('net.fabricmc:tiny-remapper:0.4.3+local')
 	implementation ('net.fabricmc:tiny-mappings-parser:0.3.0+build.17')
 
 	implementation 'net.fabricmc:access-widener:1.0.0'
