@@ -30,6 +30,7 @@ import com.google.gson.GsonBuilder;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 
+import net.fabricmc.loom.configuration.MirrorConfiguration;
 import net.fabricmc.loom.configuration.CompileConfiguration;
 import net.fabricmc.loom.configuration.FabricApiExtension;
 import net.fabricmc.loom.configuration.MavenPublication;
@@ -63,6 +64,7 @@ public class LoomGradlePlugin implements Plugin<Project> {
 		project.getExtensions().add("loom", project.getExtensions().getByName("minecraft"));
 		project.getExtensions().create("fabricApi", FabricApiExtension.class, project);
 
+		MirrorConfiguration.setup(project);
 		CompileConfiguration.setupConfigurations(project);
 		IdeConfiguration.setup(project);
 		CompileConfiguration.configureCompile(project);

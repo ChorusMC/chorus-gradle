@@ -44,6 +44,7 @@ import net.fabricmc.loom.LoomGradlePlugin;
 import net.fabricmc.loom.configuration.providers.MinecraftProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.MinecraftVersionMeta;
 import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.Mirrors;
 import net.fabricmc.loom.util.HashedDownloadUtil;
 import net.fabricmc.loom.util.gradle.ProgressLogger;
 
@@ -117,7 +118,7 @@ public class MinecraftAssetsProvider {
 					final ProgressLogger[] progressLogger = new ProgressLogger[1];
 
 					try {
-						HashedDownloadUtil.downloadIfInvalid(new URL(Constants.RESOURCES_BASE + sha1.substring(0, 2) + "/" + sha1), file, sha1, project.getLogger(), true, () -> {
+						HashedDownloadUtil.downloadIfInvalid(new URL(Mirrors.getResourcesBase() + sha1.substring(0, 2) + "/" + sha1), file, sha1, project.getLogger(), true, () -> {
 							ProgressLogger logger = loggers.pollFirst();
 
 							if (logger == null) {

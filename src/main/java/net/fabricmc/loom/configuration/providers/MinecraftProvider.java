@@ -44,6 +44,7 @@ import net.fabricmc.loom.configuration.providers.minecraft.ManifestVersion;
 import net.fabricmc.loom.configuration.providers.minecraft.MinecraftLibraryProvider;
 import net.fabricmc.loom.configuration.providers.minecraft.MinecraftVersionMeta;
 import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.Mirrors;
 import net.fabricmc.loom.util.DownloadUtil;
 import net.fabricmc.loom.util.HashedDownloadUtil;
 import net.fabricmc.stitch.merge.JarMerger;
@@ -136,7 +137,7 @@ public class MinecraftProvider extends DependencyProvider {
 			}
 		} else {
 			getProject().getLogger().debug("Downloading version manifests");
-			DownloadUtil.downloadIfChanged(new URL(Constants.VERSION_MANIFESTS), versionManifestJson, getProject().getLogger());
+			DownloadUtil.downloadIfChanged(new URL(Mirrors.getVersionManifests()), versionManifestJson, getProject().getLogger());
 		}
 
 		String versionManifest = Files.asCharSource(versionManifestJson, StandardCharsets.UTF_8).read();

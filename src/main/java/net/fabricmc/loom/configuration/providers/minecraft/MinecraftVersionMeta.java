@@ -31,6 +31,8 @@ import java.util.Objects;
 
 import com.google.gson.JsonObject;
 
+import net.fabricmc.loom.util.Constants;
+import net.fabricmc.loom.util.Mirrors;
 import net.fabricmc.loom.util.OperatingSystem;
 
 @SuppressWarnings("unused")
@@ -208,6 +210,10 @@ public final class MinecraftVersionMeta {
 	}
 
 	public final class Artifact extends Downloadable {
+		@Override
+		public String getUrl() {
+			return Mirrors.getLibrariesBase() + super.getPath();
+		}
 	}
 
 	public final class Classifier extends Downloadable {
